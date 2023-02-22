@@ -201,7 +201,7 @@ SELECTED_COLS_SUBSET = ['LNR',
                         'MOBI_REGIO',
                         'ONLINE_AFFINITAET']
 
-# Based on the 02 Notebook, contains columns only 
+# Based on the 02 Notebook, contains columns selected in subset
 CENSUS_VAR_TYPES =  pd.read_csv('data/trusted/census_var_types.csv')
 
 def generate_nan_map(values_path = VALUES_PATH):
