@@ -72,21 +72,14 @@ def demographic_preprocess_pipeline(input_path = args.input_path, output_path = 
 
     cat_cols = list(np.intersect1d(cat_cols, data.columns))
 
-    # Imputing only simpler cases
+    # Imputing using mode (most frequent) for categorical
     for col in cat_cols:
 
-        nan_rate = data[col].isna().mean()
-
-        if nan_rate <= 0.1:
-
-            data[col].fillna(data[col].mode()[0], inplace = True)
+        data[col].fillna(data[col].mode()[0], inplace = True)
         
-        else:
-
-            continue
-
     num_cols = CENSUS_VAR_TYPES[~CENSUS_VAR_TYPES['Type'].isin(['interval', 'nominal', 'binary'])]['Attribute'].values
 
+    # Imputing using mean for numerical
     for col in num_cols:
 
         data[col].fillna(data[col].mean(), inplace = True)
