@@ -67,7 +67,17 @@ def demographic_preprocess_pipeline(input_path = args.input_path, output_path = 
 
     data['CAMEO_DEU_2015'] = data['CAMEO_DEU_2015'].map(cameo_map)
 
-    print('Running Simpler Imputations...')
+    data['ANZ_HH_TITEL'] = np.where((data['ANZ_HH_TITEL'] == 0) &\
+                                   (data['ANZ_HH_TITEL'].notnull()), 0,
+                                   np.where(data['ANZ_HH_TITEL'].notnull(), 1,np.nan))
+    
+    data = reencode_d19_columns(data)
+
+    print('Dropping too emtpy rows...')
+
+    data = drop_empty_rows(data, threshold = 0.2)
+
+    print('Running Imputations...')
     cat_cols = CENSUS_VAR_TYPES[CENSUS_VAR_TYPES['Type'].isin(['interval', 'nominal', 'binary'])]['Attribute'].values
 
     cat_cols = list(np.intersect1d(cat_cols, data.columns))
