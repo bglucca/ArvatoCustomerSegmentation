@@ -12,9 +12,14 @@ parser.add_argument('output_path', type = str, help = 'Parquet file output Path'
 
 parser.add_argument('--is_customer', default=0, type = int, help = 'Flag (1 or 0) that indicates if is customer data or not. Defaults to 0 (No)')
 
+parser.add_argument('--is_mailout_train', default=0, type = int, help = 'Flag (1 or 0) that indicates if is mailout training data or not. Defaults to 0 (No)')
+
 args = parser.parse_args()
 
-def demographic_preprocess_pipeline(input_path = args.input_path, output_path = args.output_path, is_customer_data = args.is_customer):
+def demographic_preprocess_pipeline(input_path = args.input_path,
+                                    output_path = args.output_path,
+                                    is_customer_data = args.is_customer,
+                                    is_mailout_train = args.is_mailout_train):
 
     '''
     Does the preprocessing of the demographic data after Explorations in the 01 and 02 notebooks.
@@ -50,6 +55,10 @@ def demographic_preprocess_pipeline(input_path = args.input_path, output_path = 
     if is_customer_data:
 
         SELECTED_COLS_SUBSET.extend(['CUSTOMER_GROUP','ONLINE_PURCHASE','PRODUCT_GROUP'])
+
+    if is_mailout_train:
+
+        SELECTED_COLS_SUBSET.extend(['RESPONSE'])
 
     data = data[SELECTED_COLS_SUBSET].copy()
 
