@@ -10,16 +10,10 @@ parser.add_argument('input_path', type = str, help = 'Raw CSV input Path')
 
 parser.add_argument('output_path', type = str, help = 'Parquet file output Path')
 
-parser.add_argument('--is_customer', default=0, type = int, help = 'Flag (1 or 0) that indicates if is customer data or not. Defaults to 0 (No)')
-
-parser.add_argument('--is_mailout_train', default=0, type = int, help = 'Flag (1 or 0) that indicates if is mailout training data or not. Defaults to 0 (No)')
-
 args = parser.parse_args()
 
 def demographic_preprocess_pipeline(input_path = args.input_path,
-                                    output_path = args.output_path,
-                                    is_customer_data = args.is_customer,
-                                    is_mailout_train = args.is_mailout_train):
+                                    output_path = args.output_path):
 
     '''
     Does the preprocessing of the demographic data after Explorations in the 01 and 02 notebooks.
@@ -97,19 +91,7 @@ def demographic_preprocess_pipeline(input_path = args.input_path,
 
     data = replace_nans(data)
 
-    data['CAMEO_DEU_2015'] = data['CAMEO_DEU_2015'].replace('-1',np.nan)
-
-    print('Subsetting...')
-
-    # if is_customer_data:
-
-    #     SELECTED_COLS_SUBSET.extend(['CUSTOMER_GROUP','ONLINE_PURCHASE','PRODUCT_GROUP'])
-
-    # if is_mailout_train:
-
-    #     SELECTED_COLS_SUBSET.extend(['RESPONSE'])
-
-    # data = data[SELECTED_COLS_SUBSET].copy()
+    print('Removing irrelevant or undocumented columns...')
 
     cols_to_drop = ['GEBURTSJAHR',
                     'SOHO_FLAG',
@@ -168,12 +150,24 @@ def demographic_preprocess_pipeline(input_path = args.input_path,
                     'KBA13_ANTG3',
                     'KBA13_ANTG4']
     
-    data.drop(columns = cols_to_drop + not_found_cols, inplace = True)
+    # Manually setting to enable scripts to be run in whichever order is needed
+    cols_empty_on_census = ['ALTER_KIND4',
+                            'TITEL_KZ',
+                            'ALTER_KIND3',
+                            'ALTER_KIND2',
+                            'ALTER_KIND1',
+                            'AGER_TYP',
+                            'D19_KK_KUNDENTYP',
+                            'KBA05_BAUMAX',
+                            'ALTER_HH']
+
+    data.drop(columns = cols_to_drop + not_found_cols + cols_empty_on_census, inplace = True)
 
     print('Fixing specific columns...')
 
     data['OST_WEST_KZ'] = data['OST_WEST_KZ'].map({'O':0,'W':1})
 
+    # CAMEO DEU specific fix
     unique_vals_cameo = data['CAMEO_DEU_2015'].dropna().unique()
 
     unique_vals_cameo = sorted(unique_vals_cameo)
@@ -184,15 +178,18 @@ def demographic_preprocess_pipeline(input_path = args.input_path,
 
     data['CAMEO_DEU_2015'] = data['CAMEO_DEU_2015'].map(cameo_map)
 
+    # Binarizing
     data['ANZ_HH_TITEL'] = np.where((data['ANZ_HH_TITEL'] == 0) &\
                                    (data['ANZ_HH_TITEL'].notnull()), 0,
                                    np.where(data['ANZ_HH_TITEL'].notnull(), 1,np.nan))
     
-    data = reencode_d19_columns(data)
+    data['ANZ_KINDER'] = np.where((data['ANZ_KINDER'] == 0) &\
+                                   (data['ANZ_KINDER'].notnull()), 0,
+                                   np.where(data['ANZ_KINDER'].notnull(), 1,np.nan))
 
     print('Dropping too emtpy rows...')
 
-    data = drop_empty_rows(data, threshold = 0.2)
+    data = drop_empty_rows(data, threshold = 0.3)
 
     print('Running Imputations...')
     cat_cols = CENSUS_VAR_TYPES[CENSUS_VAR_TYPES['Type'].isin(['interval', 'nominal', 'binary'])]['Attribute'].values
@@ -202,15 +199,52 @@ def demographic_preprocess_pipeline(input_path = args.input_path,
     # Imputing using mode (most frequent) for categorical
     for col in cat_cols:
         
-        data[col].fillna(data[col].mode().values[0], inplace = True)
+        try:
+            
+            data[col].fillna(data[col].mode().values[0], inplace = True)
 
-    num_cols = CENSUS_VAR_TYPES[~CENSUS_VAR_TYPES['Type'].isin(['interval', 'nominal', 'binary'])]['Attribute'].values
+        except:
+
+            print(col)
+
+            raise
 
     # Imputing using mean for numerical
+    num_cols = list_cols_by_type(data = data, var_type='numeric')
+
     for col in num_cols:
 
         data[col].fillna(data[col].mean(), inplace = True)
     
+    print('Re-enconding D19 columns...')
+    
+    # Reencoding D19 cols
+    data = reencode_d19_columns(data)
+
+    print('Asserting NaNs were handled...')
+    
+    nan_count = data.isna().sum()
+
+    if nan_count.sum() != 0:
+
+        print('Columns with NaN values identified:')
+        print(nan_count[nan_count > 0], end = '\n\n')
+
+        raise ValueError('No NaNs should still be in the data. Handle the cases and run again')
+    
+    else:
+
+        print('OK')
+
+    print('Re-encoding types...')
+    
+    cols_to_use = np.intersect1d(data.columns, CENSUS_VAR_TYPES['Attribute'])
+
+    type_dict = dict(zip(CENSUS_VAR_TYPES[CENSUS_VAR_TYPES['Attribute'].isin(cols_to_use)]['Attribute'],
+                         CENSUS_VAR_TYPES[CENSUS_VAR_TYPES['Attribute'].isin(cols_to_use)]['dtype']))
+
+    data = data.astype(type_dict)
+
     print('Exporting...')
     data.to_parquet(output_path)
 
