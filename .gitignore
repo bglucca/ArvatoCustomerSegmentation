@@ -1,5 +1,5 @@
 data/raw/Udacity_*
-data/refined/*
+data/refined/*.parquet
 utils/__pycache__
 plots/*
 data/trusted/census_subset.parquet
