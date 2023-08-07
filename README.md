@@ -58,6 +58,6 @@ All used notebooks are on the root folder of the repo
 # Acknowledgements and further info
 The data and project are part of the [Udacity's Data Science Nanodegree](https://www.udacity.com/courses/all).  
 
-There is an article associated with the findings and development process that can be found on my Medium.
+There is an article associated with the findings and development process that can be found on my [Medium](https://medium.com/@luccagomes/youve-got-mail-machine-learning-for-customer-segmentation-2c90d9b9d58d).
 
 For further information into the FAMD method used on the clustering stage, [check this article.](https://towardsdatascience.com/famd-how-to-generalize-pca-to-categorical-and-numerical-data-2ddbeb2b9210)
